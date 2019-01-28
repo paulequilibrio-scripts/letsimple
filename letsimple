@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+
+# Bash script to simplify Let's Encrypt certificate operations
+#   Depends on:
+#     - bash
+#     - docker
+#     - netcat
+# It needs a running docker client to use certbot and nginx docker images.
+
+# Error codes:
+#   1  invalid option
+#   2  no DOMAIN informed
+#   3  no EMAIL informed
+
+
+this="$(basename $0)"
+version='0.1.0'
+
+color_reset='\033[0m'
+color_error='\033[0;31m'
+color_ok='\033[0;32m'
+color_info='\033[0;33m'
+
+
+ls_version () {
+  printf '%s\n' $version
+  exit 0
+}
+
+
+ls_usage () {
+  printf 'Usage:\n  %s <option> [args]\n\n' $this
+}
+
+
+ls_help () {
+  ls_usage
+  printf 'Options:
+  -c, --certify DOMAIN EMAIL \t Issue a certificate for DOMAIN using EMAIL
+  -d, --delete DOMAIN \t\t Delete DOMAIN certificate
+  -h, --help          \t\t Show this help
+  -r, --renew         \t\t Attempts to renew all installed certificates
+  -t, --test DOMAIN   \t\t Issue a TEST certificate for DOMAIN
+  -v, --version \t\t Print %s version
+  \n' $this
+  exit 0
+}
+
+
+ls_webserver_run () {
+  printf '\r%b[ INFO ] Starting web server...%b\e[K' $color_info $color_reset
+
+  docker container run --rm --name 'webserver' \
+    -v '/tmp/letsimple/nginx:/usr/share/nginx/html' \
+    --publish 80:80 \
+    --detach nginx > /dev/null
+
+  local seconds=0
+  until nc -z localhost 80 ; do
+    seconds=$(( $seconds + 1 ))
+    printf '\r%b[ INFO ] Waiting for web server be online... %ds%b' \
+          $color_info $seconds $color_reset
+    sleep 1
+  done
+
+  printf '%b OK %b\n' $color_ok $color_reset
+}
+
+
+ls_webserver_stop () {
+  printf '%b[ INFO ] Stoping web server...%b' $color_info $color_reset
+  docker container stop webserver > /dev/null && \
+  printf '%b OK %b\n' $color_ok $color_reset
+}
+
+
+ls_test () {
+  local option="$1"
+  local domain="$2"
+
+  if [ -z $domain ]; then
+    printf '%b[ FAIL ] No DOMAIN informed%b
+          \rUsage:\n\t %s %s DOMAIN\n\n' \
+          $color_error $color_reset $this $option
+    exit 2
+  fi
+
+  printf '%b[ INFO ] Requesting a TEST certificate to domain "%s"
+         %b\e[K' $color_info $domain $color_reset
+  ls_webserver_run
+
+  printf '%b[ INFO ] Runing certbot%b\n' $color_info $color_reset
+  docker container run --rm --name 'certbot_TEST' \
+    -v '/etc/letsencrypt:/etc/letsencrypt' \
+    -v '/var/log/letsencrypt:/var/log/letsencrypt' \
+    -v '/tmp/letsimple/letsencrypt:/data/letsencrypt' \
+    certbot/certbot certonly --webroot --noninteractive --agree-tos \
+                    --webroot-path=/data/letsencrypt --domains $domain \
+                    --test-cert --register-unsafely-without-email
+
+  ls_webserver_stop
+}
+
+
+ls_certify () {
+  local option="$1"
+  local domain="$2"
+  local email="$3"
+
+  if [ -z $domain ]; then
+    printf '%b[ FAIL ] No DOMAIN informed%b
+          \rUsage:\n\t %s %s DOMAIN EMAIL\n\n' \
+          $color_error $color_reset $this $option
+    exit 2
+  fi
+
+  if [ -z $email ]; then
+    printf '%b[ FAIL ] No EMAIL informed%b
+          \rUsage:\n\t %s %s %s EMAIL\n\n' \
+          $color_error $color_reset $this $option $domain
+    exit 3
+  fi
+
+  printf '%b[ INFO ] Requesting certificate to domain "%s" using e-mail "%s"
+         %b\e[K' $color_info $domain $email $color_reset
+  ls_webserver_run
+
+  printf '%b[ INFO ] Runing certbot%b\n' $color_info $color_reset
+  docker container run --rm --name 'certbot_CERTIFY' \
+    -v '/etc/letsencrypt:/etc/letsencrypt' \
+    -v '/var/log/letsencrypt:/var/log/letsencrypt' \
+    -v '/tmp/letsimple/letsencrypt:/data/letsencrypt' \
+    certbot/certbot certonly --webroot --noninteractive --agree-tos \
+                    --webroot-path=/data/letsencrypt --domains $domain \
+                    --no-eff-email --email $email
+
+  ls_webserver_stop
+}
+
+
+ls_delete () {
+  local option="$1"
+  local domain="$2"
+
+  if [ -z $domain ]; then
+    printf '%b[ FAIL ] No DOMAIN informed%b
+          \rUsage:\n\t %s %s DOMAIN\n\n' \
+          $color_error $color_reset $this $option
+    exit 2
+  fi
+
+  printf '%b[ INFO ] Deleting certificate from domain "%s"
+         %b\e[K' $color_info $domain $color_reset
+
+  printf '\r%b[ INFO ] Runing certbot%b\n' $color_info $color_reset
+  docker container run --rm --name 'certbot_DELETE' \
+    -v '/etc/letsencrypt:/etc/letsencrypt' \
+    -v '/var/log/letsencrypt:/var/log/letsencrypt' \
+    certbot/certbot delete --cert-name $domain
+}
+
+
+ls_renew () {
+  printf '%b[ INFO ] Attempting to renew all certificates %b\n' $color_info $color_reset
+  printf '\r%b[ INFO ] Runing certbot%b\n' $color_info $color_reset
+  docker container run --rm --name 'certbot_RENEW' \
+    -v '/etc/letsencrypt:/etc/letsencrypt' \
+    -v '/var/log/letsencrypt:/var/log/letsencrypt' \
+    -v '/tmp/letsimple/letsencrypt:/data/letsencrypt' \
+    certbot/certbot renew --webroot --webroot-path=/data/letsencrypt
+}
+
+
+case "$1" in
+  (-c|--certify) ls_certify "$@" ;;
+  (-d|--delete)  ls_delete "$@" ;;
+  (-h|--help)    ls_help ;;
+  (-r|--renew)   ls_renew ;;
+  (-t|--test)    ls_test "$@" ;;
+  (-v|--version) ls_version ;;
+  (*)
+    ls_usage
+    printf 'To see all available options use: %s --help\n\n' $this
+    exit 1
+  ;;
+esac
