@@ -50,8 +50,8 @@ ls_help () {
 ls_webserver_run () {
   printf '\r%b[ INFO ] Starting web server...%b\e[K' $color_info $color_reset
 
-  docker container run --rm --name 'webserver' \
-    -v '/tmp/letsimple/nginx:/usr/share/nginx/html' \
+  docker container run --rm --name 'ls-webserver' \
+    -v '/tmp/webroot:/usr/share/nginx/html' \
     --publish 80:80 \
     --detach nginx > /dev/null
 
@@ -69,7 +69,7 @@ ls_webserver_run () {
 
 ls_webserver_stop () {
   printf '%b[ INFO ] Stoping web server...%b' $color_info $color_reset
-  docker container stop webserver > /dev/null && \
+  docker container stop ls-webserver > /dev/null && \
   printf '%b OK %b\n' $color_ok $color_reset
 }
 
@@ -93,7 +93,7 @@ ls_test () {
   docker container run --rm --name 'certbot_TEST' \
     -v '/etc/letsencrypt:/etc/letsencrypt' \
     -v '/var/log/letsencrypt:/var/log/letsencrypt' \
-    -v '/tmp/letsimple/letsencrypt:/data/letsencrypt' \
+    -v '/tmp/webroot:/data/letsencrypt' \
     certbot/certbot certonly --webroot --noninteractive --agree-tos \
                     --webroot-path=/data/letsencrypt --domains $domain \
                     --test-cert --register-unsafely-without-email
@@ -129,7 +129,7 @@ ls_certify () {
   docker container run --rm --name 'certbot_CERTIFY' \
     -v '/etc/letsencrypt:/etc/letsencrypt' \
     -v '/var/log/letsencrypt:/var/log/letsencrypt' \
-    -v '/tmp/letsimple/letsencrypt:/data/letsencrypt' \
+    -v '/tmp/webroot:/data/letsencrypt' \
     certbot/certbot certonly --webroot --noninteractive --agree-tos \
                     --webroot-path=/data/letsencrypt --domains $domain \
                     --no-eff-email --email $email
@@ -166,7 +166,7 @@ ls_renew () {
   docker container run --rm --name 'certbot_RENEW' \
     -v '/etc/letsencrypt:/etc/letsencrypt' \
     -v '/var/log/letsencrypt:/var/log/letsencrypt' \
-    -v '/tmp/letsimple/letsencrypt:/data/letsencrypt' \
+    -v '/tmp/webroot:/data/letsencrypt' \
     certbot/certbot renew --webroot --webroot-path=/data/letsencrypt
 }
 
