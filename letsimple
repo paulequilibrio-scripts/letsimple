@@ -2,9 +2,9 @@
 
 # Bash script to simplify Let's Encrypt certificate operations
 #   Depends on:
-#     - bash
-#     - docker
-#     - netcat
+#     - Bash
+#     - Netcat (nc)
+#     - Docker
 # It needs a running docker client to use certbot and nginx docker images.
 
 # Error codes:
@@ -14,7 +14,7 @@
 
 
 this="$(basename $0)"
-version='0.1.0'
+version='0.1.2'
 
 color_reset='\033[0m'
 color_error='\033[0;31m'
