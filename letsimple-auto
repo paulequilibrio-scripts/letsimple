@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
 if ! /root/letsimple/letsimple --renew | grep -qi 'No renewals were attempted.' ; then
-  docker container restart tatu_api_1
-  docker container restart tatu_web_1
+  # docker container restart CONTAINER_NAME
+  systemctl restart nginx.service
 fi

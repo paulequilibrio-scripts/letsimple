@@ -15,6 +15,7 @@
 # Automation
 # 1. put this script in /root/letsimple/letsimple with execution permission
 # 2. put the letsimple-auto script in /etc/cron.daily with execution permission
+# 3. put the command to restart your server inside the letsimple-auto script
 
 
 this="$(basename $0)"
