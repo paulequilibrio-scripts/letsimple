@@ -12,6 +12,10 @@
 #   2  no DOMAIN informed
 #   3  no EMAIL informed
 
+# Automation
+# 1. put this script in /root/letsimple/letsimple with execution permission
+# 2. put the letsimple-auto script in /etc/cron.daily with execution permission
+
 
 this="$(basename $0)"
 version='0.1.2'
@@ -159,14 +163,13 @@ ls_delete () {
     certbot/certbot delete --cert-name $domain
 }
 
-
 ls_renew () {
   printf '%b[ INFO ] Attempting to renew all certificates %b\n' $color_info $color_reset
   printf '\r%b[ INFO ] Runing certbot%b\n' $color_info $color_reset
   docker container run --rm --name 'certbot_RENEW' \
     -v '/etc/letsencrypt:/etc/letsencrypt' \
     -v '/var/log/letsencrypt:/var/log/letsencrypt' \
-    -v '/tmp/webroot:/data/letsencrypt' \
+    -v '/tmp:/data/letsencrypt' \
     certbot/certbot renew --webroot --webroot-path=/data/letsencrypt
 }
 
